@@ -1,0 +1,77 @@
+services:
+  api:
+    build: ./api
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://db:5432/mydatabase
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+      - redis
+    networks:
+      - frontend
+      - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: "512M"
+
+  db:
+    image: postgres:14
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: /run/secrets/db_password
+      POSTGRES_DB: mydatabase
+    secrets:
+      - db_password
+    networks:
+      - backend
+
+  redis:
+    image: redis:6
+    networks:
+      - backend
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - backend
+
+  grafana:
+    image: grafana/grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: /run/secrets/grafana_password
+    secrets:
+      - grafana_password
+    ports:
+      - "3001:3000"
+    networks:
+      - backend
+
+volumes:
+  postgres-data:
+
+secrets:
+  db_password:
+    file: ./secrets/database_password.txt
+  grafana_password:
+    file: ./secrets/grafana_password.txt
+
+networks:
+  frontend:
+  backend:
